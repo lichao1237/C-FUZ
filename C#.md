@@ -960,13 +960,572 @@ class Car
 
 声明类型必须是集合类型
 
-
-
-第四章 WinForm程序设计
-
-<style>
-</style>
+# 第四章 WinForm程序设计
 
 1、掌握控件Button、TextBox、RadioButton、CheckBox、RichTextBox、ListBox、ComboBox、TreeView、ListView、PictureBox、菜单栏、工具栏、状态栏、OpenFileDialog、SaveFileDialog、FontDialog、ColorDialog
 
 2、掌握事件处理过程
+
+## Button
+
+## TextBox
+
+1、用于获取用户输入或者显示文本
+
+2、只能对显示或输入的文本提供单个格式化样式
+
+## RadioButton
+
+# 第五章 流
+
+File类常用静态方法
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-09-22-39-56-image.png)
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-03-46-image.png)
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-09-45-image.png)
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-13-11-image.png)
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-18-32-image.png)
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-18-51-image.png)
+
+## FileStream
+
+表示在磁盘或网络路径上指向文件的流，提供了在文件中读写字节的方法
+
+Read用于只读
+
+Write用于只写
+
+ReadWrite用于读写
+
+### 文件位置
+
+FileStream类维护内部文件指针，该指针指向文件中进行下一次读写操作的位置
+
+```csharp
+public override long Seek(long offset,SeekOrigin origin)//将文件流的当前位置设置为起始位置
+//就是设置起始位置
+```
+
+offset为文件指针以字节为单位的移动距离
+
+origin为开始计算的起始位置
+
+SeekOrigin.Beigin Current End
+
+### 读取数据
+
+不仅可以读取文本文件，还可以读取图像和声音文件
+
+```csharp
+public override int Read(byte[] array, int offset, int count)
+//array为字节数组 offset为字节数组中开始写入数据的位置
+//count指定从文件中读取多少字节
+int ReadByte()
+//从文件中读取一个字节，并将读取位置提升一个字节
+```
+
+![](C:\Users\86130\AppData\Roaming\marktext\images\2024-12-10-09-33-23-image.png)
+
+## 用File创建文件
+
+```csharp
+using System.IO;
+string strTempPath=Path.GetTempPath();
+string strFileName=Path.Combine(strTempPath,"test.txt");
+FileStream aFile=File.Create(strFileName);
+if   ( File.Exists(strFileName) )
+   Console.WriteLine(“File  {0}  have created”, strFileName);
+else
+   Console.WriteLine(“File {0} created failed”, strFileName);
+aFile.Close( );
+File.Delete(strFileName);
+```
+
+## StreamWrite
+
+### 构造方法
+
+```csharp
+public StreamWrite(string path)
+public StreamWirte(string path,bool append)
+append为false，则创建一个新文件，或截取现有文件并打开它
+append为true，则打开文件，保留原有数据。如果找不到文件，则创建一个新文件
+```
+
+### Write和WriteLine方法
+
+```csharp
+public override void Write(string value)
+//将字符串写入流，参数除字符串可以是任何基本数据类型
+
+
+public virtual void WriteLine(string value)
+//将字符串写入流并换行，参数除字符串外可以是任何基本数据类型
+```
+
+## StreamReader
+
+### 构造方法
+
+```csharp
+public StreamReader(Stream stream)
+public StreamReader(string path)
+```
+
+### Read和ReadLine和ReadToEnd方法
+
+```csharp
+public override int Read()
+//读取输入流中的下一个字符。到达末流尾则返回-1
+public override int ReadLine()
+//从当前流中读取一行字符，并将数据作为字符串返回
+int Read(char[] buffer,int index , int count)
+//从index开始，将当前流中最多count个字符读入buffer中
+string ReadToEnd()
+//从流的当前位置到末流读取流
+```
+
+## BinaryReader和BinaryWriter
+
+```csharp
+以二进制读取数据！！！
+常用函数
+public virtual XXX readXXX();
+对各种基本数据类型的读取
+public virtual int Read()
+public virtual int Read(byte[] buffer,int index,int count)
+public virtual int Read(char[] buffer,int index,int count)
+构造函数
+public BinaryReader(Stream input)
+public BinaryReader(Stream input,Encoding encoding)
+___________________
+
+常用函数
+public virtual void Write(XXX xxx);
+public virtual void Write(byte[] buffer,int index,int count)
+public virtual void Write(char[] buffer,int index,int count)
+构造函数
+protected BinaryWriter()
+public BinaryWrite(Stream input)
+public BinaryWrite(Stream input,Encoding encoding)
+```
+
+## 对象的串行化
+
+.NET Framework在System.Runtime.Serialization和System.Runtime.Serialization.Formatters命名空间中提供了串行化对象的基础架构
+
+System.Runtime.Serialization.Formatters.Binary在该命名空间中包含的BinaryFormatter类能把对象串行化为二进制数据，把二进制数据串行化为对象。
+
+System.Runtime.Serialization.Formatters.Soap在该命名空间中包含的SoupFormatter类能把对象串行化为SOAP格式的XML数据，把SOAP格式的XLM数据串行化为对象。
+
+```csharp
+IFormatter接口
+void Serialize(Stream serializationStream, Object graph)
+将对象或具有给定根的对象图形序列化为所提供的流。
+Object Deserialize(Stream serializationStream)
+反序列化所提供流中的数据并重新组成对象图形
+
+
+IFormatter serializer=new BinaryFormatter();
+serializer.Serialize(myStream,myObject);
+
+
+IFormatter serializer=new BinaryFormatter()
+MyObjectType myNewObject=serializer.Deserialize(myStream) as MyObectType;
+```
+
+## 监控文件结构FileSystemWatcher
+
+```csharp
+使用FileSystemWatcher
+首先设置一些属性，指定监控的位置、内容以及引发应用程序要处理的事件的时间
+
+然后给FileSystemWatcher提供定制事件处理程序的地址，当发生重要事件时候，
+FileSystemWatcher就调用这些属性。
+
+打开FileSystemWatcher，等待事件。
+
+启动这个对象之前必须设置的属性有
+
+Path 设置要监控的文件位置和目录
+
+NotifyFilter 枚举值贵姓在被监控的文件内要监控哪些内容，可能是
+Attributes LastWrite
+CreateTime Security DirectoryName FileName Size LastAccess
+
+这些表示要监控的文件或文件夹的属性，如果规定的属性发生变化，就引发事件
+Filter监控文件的过滤器
+必须为Changed、Created、Deleted和Renamed编写事件处理程序。
+当修改与Path、NotifyFilter和Filter属性匹配的文件或目录时，就引发每一个事件
+将EnableRaisingEvents属性设置为true，就可以开始监控工作
+```
+
+```csharp
+ FileSystemEventArgs类的属性
+ public WatcherChangeTypes ChangeType { get; } 
+ WatcherChangeTypes.All
+     文件或文件夹的创建、删除、更改或重命名。 
+ Changed
+     文件或文件夹的更改。更改的类型包括大小、属性、安全设置、最近写入时间和最近访问时间方面的更改。  
+ Created
+      文件或文件夹的创建。 
+ Deleted
+     文件或文件夹的删除
+ Renamed
+     文件或文件夹的重命名
+ FullPath
+获取受影响的文件或目录的完全限定的路径。 
+ Name
+获取受影响的文件或目录的名称
+```
+
+```csharp
+RenamedEventArgs的属性
+OldFullPath
+获取受影响的文件或目录的前一个完全限定的路径。 
+OldName
+获取受影响的文件或目录的旧名称。  
+```
+
+## 读写压缩文件
+
+```csharp
+//System.IO.Compression命名空间中有两个压缩流类，DeflateStream和GZIpStream。
+对于这两个类，必须用已经有的流初始化它们
+//构造方法
+public GZipStream(Stream stream,CompressionMode mode)
+CompressionMode.Compress压缩基础流
+CompressionMode.Decompress解压缩基础流
+```
+
+# 多线程技术
+
+程序中的多任务，在使用文件处理软件时，用户在输入文字的同时，软件能够同步进行拼写检查而不需要用户的等待。
+
+多线程工作方式：单处理器计算机上的并发性。抢先实多任务处理：时间片轮转。
+
+例如：Microsoft Word的拼写检查器，一个线程等待用户输入，另一个线程进行后台搜索，第三个线程将写入的数据存储在临时文件中，第四个线程重Internet上下载其他数据。
+
+例如：运行在服务器上的应用程序中，一个线程等待客户的请求，称为监听器线程；只要接收到请求，就将它传送给另一个工作线程，之后继续与客户通信。监听器线程会立即返回，接受下一个客户发送的下一个请求。
+
+## 进程的概念
+
+进程是应用程序中的一个动态执行，包含程序代码在内存中的映像以及进程所需的系统资源
+
+System.Diagnostics下的Process类可以访问和管理当下系统中的进程
+
+## 线程的概率
+
+线程包括堆栈、CPU寄存器状态以及系统任务计划列表中的项
+
+进程中的所有线程共享进程的虚拟地址空间和系统资源，如程序代码的内存和堆。
+
+## 线程的建立与启动
+
+```csharp
+//假定需要编写一个文件压缩软件，用户点击压缩按钮后开始压缩指定的文件。因为整个压缩过程
+//需要一定的时间才能完成，而用户此时还可以需要移动或缩放程序的窗口，甚至暂停或终止当前
+//文件的压缩。
+//因此需要一个单独线程来处理压缩过程。
+Thread compressThread=new Thread(entryPoint);
+
+//在C#应用程序中，Main()方法所在线程是.NET运行库开始执行的第一个线程，称为主线程。
+//在一个应用程序中创建的用于执行一些工作任务的线程称为工作线程。
+//Thread的构造方法需要一个参数，用于指定线程的入口——即线程开始执行的方法
+public delegate void ParameterizedThreadStart(Object obj)
+public delegate void ThreadStart();
+static void DoCompress(){
+    //压缩代码
+}
+
+ThreadStart entryPoint=new ThreadStart(DoCompress);
+
+//线程创建后，并未获得系统资源。启动线程，即给线程分配除处理器之外的系统资源并执行各种
+//安全性检查
+compressThread.Start();
+
+public void start()
+//在调用该方法后，新线程并不是出于running状态，而是处于unstarted状态。
+```
+
+```csharp
+//线程的挂起、恢复与终止
+
+public void Suspend()
+compressThread.Supend();//使线程处于阻塞状态
+
+
+public vodi Resume()
+compressThread.Rusume();//恢复被挂起的线程，使其进入就绪状态
+
+//Suspend方法不一定会立即起作用。.NET允许要挂起的线程再执行几个指令，达到可以安全挂起的状态
+//确保垃圾收集器执行正确的操作。
+
+public void Abort()
+compressThread.Abort();//终止线程，Windows永久删除该线程的所有数据，该线程不能重新启动
+//Abort方法会在所影响的线程中产生一个ThreadAbortException异常，在finally快中进行
+//资源清理并确保线程正在处理的数据处于有效状态
+//在调用Abort方法前一定要判断线程是否被激活
+if(myThread.IsAlive){
+    myThread.Abort();
+}
+
+
+public void Join()
+thread1.join()//当前线程进入阻塞状态，等待调用该方法的线程执行完毕
+
+public static void Sleep(int millisecondsTimeout)
+//使当前线程睡眠指定的时间，休眠完后线程变为就绪状态
+```
+
+## Thread类的常用属性
+
+```csharp
+CurrentThread
+//获取当前正在运行的线程
+Thread myOwnThread=Thread.CurrentThread;
+
+IsAlive
+//指示当前线程的执行状态，如果此线程已启动并且尚未正常终止，则为true；否则为false。
+
+IsBackground
+//指示该线程是否为后台线程。
+//后台运行的线程在所哟前台线程都结束后会被自动终止，以防止出现程序无法退出的情况。
+
+Name
+//线程的名称
+
+Priority
+//指示线程的调度优先级
+ThreadPriority.Highest//将线程安排在具有任何其他优先级的线程之前
+AboveNormal//将线程安排在具有Highest优先级的线程之后，在具有Normal优先级的线程之前
+Normal//将线程安排在具有AboveNormal优先级的线程之后，在具有BelowNormal优先级的线程之前。为线程的默认优先级
+BelowNormal//将线程安排在具有Normal优先级的线程之后，在具有Lowest优先级的线程之前
+Lowest//将线程安排在具有任何其他优先级的线程之后
+```
+
+## 给线程传递数据
+
+```csharp
+//使用带ParmaeterizedThreadStart委托参数的Thread构造函数
+//创建一个定制类，把线程的方法定义为实例方法，这样就可以初始化实例的数据，然后启动线程
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+
+namespace Wrox.ProCSharp.Threading
+{
+    // 定义一个 MyThread 类，用于在多线程中处理数据
+    public class MyThread
+    {
+        private string data; // 存储线程的数据
+
+        // 构造函数，初始化数据
+        public MyThread(string data)
+        {
+            this.data = data;
+        }
+
+        // 线程执行的主方法
+        public void ThreadMain()
+        {
+            // 输出线程信息，展示线程运行时的数据
+            Console.WriteLine("Running in a thread, data: {0}", data);
+        }
+    }
+
+    // 定义一个结构体 Data，用于存储消息
+    public struct Data
+    {
+        public string Message; // 存储消息的字段
+    }
+
+    // 主程序入口
+    class Program
+    {
+        static void Main()
+        {
+            // 启动第一个线程，注释掉了部分代码
+            // FirstThread();
+
+            /* 
+            // 创建并启动两个线程，分别设置线程优先级
+            var t1 = new Thread(Prio);
+            t1.Name = "First";
+
+            var t2 = new Thread(Prio);
+            t2.Name = "Second";
+            t1.Priority = ThreadPriority.Highest;
+            t2.Priority = ThreadPriority.Lowest;
+
+            t1.Start();
+            t2.Start(); 
+            */
+
+            // 创建一个线程并指定线程执行的方法为 ThreadMain
+            var t1 = new Thread(ThreadMain);
+            /* 
+            var 是 C# 中的隐式类型，编译器会根据初始化表达式推断出变量的类型
+            var 只能用在局部变量，并且必须初始化。
+            */
+
+            t1.Name = "MyNewThread1"; // 设置线程名称
+            t1.IsBackground = true;   // 设置为后台线程
+            t1.Start(); // 启动线程
+            Console.WriteLine("Main thread ending now...");
+
+            // 给线程传递数据的第一种方式（注释掉的代码）
+            /* 
+            var d = new Data { Message = "Info" };
+            var t2 = new Thread(ThreadMainWithParameters);
+            t2.Start(d);
+            */
+
+            // 给线程传递数据的第二种方式（创建一个 MyThread 实例）
+            /* 
+            var obj = new MyThread("info");
+            var t3 = new Thread(obj.ThreadMain);
+            t3.Start();
+            */
+
+            // 主线程等待用户输入
+            Console.ReadLine();
+        }
+
+        // 线程方法，打印当前线程的名称并循环输出数字
+        static void Prio()
+        {
+            for (int i = 0; i < 1000; i++)
+            {
+                Console.WriteLine("{0}, {1}", Thread.CurrentThread.Name, i);
+            }
+        }
+
+        // 线程方法，打印当前线程的名称和 ID，并休眠 3 秒
+        static void ThreadMain()
+        {
+            Console.WriteLine("Thread {0} started", Thread.CurrentThread.Name);
+            Thread.Sleep(3000); // 使当前线程休眠 3 秒
+            Console.WriteLine("Running in the thread {0}, id: {1}.", Thread.CurrentThread.Name, Thread.CurrentThread.ManagedThreadId);
+            Console.WriteLine("Thread {0} completed", Thread.CurrentThread.Name);
+        }
+
+        // 线程方法，接收一个对象并打印其消息（通过参数传递）
+        static void ThreadMainWithParameters(object o)
+        {
+            Data d = (Data)o; // 将传递的对象转换为 Data 类型
+            Console.WriteLine("Running in a thread, received {0}", d.Message); // 输出传递的消息
+        }
+
+        // 第一个线程的示例：使用 Lambda 表达式创建并启动线程
+        static void FirstThread()
+        {
+            // 使用 Lambda 表达式创建线程并启动
+            new Thread(() => Console.WriteLine("Running in a thread, id: {0}", Thread.CurrentThread.ManagedThreadId)).Start();
+
+            Console.WriteLine("This is the main thread, id: {0}", Thread.CurrentThread.ManagedThreadId); // 输出主线程 ID
+        }
+    }
+}
+```
+
+## 后台线程
+
+## 线程池
+
+1、线程池是可以用来在后台执行多个任务的线程集合，使主线程可以自由地异步执行其它任务。
+
+2、该类会在需要时候增减池中线程的个数，直到最大的线程数。
+
+3、池中的最大线程数是可以配置的
+
+4、如果有更多的工作要处理，而线程池中线程的使用也到了极限，最新的工作就要排队，必须等待线程完成其任务。
+
+5、线程池中的每个线程都使用默认的堆栈大小，以默认的优先级运行，并处于多线程单元中。
+
+6、如果线程池线程都始终保持繁忙，但队列中包含挂起的工作，则线程池将在一段时间之后创建另一个辅助线程。
+
+7、线程池适合于执行一些需要多个线程的任务。使用线程池可以优化任务的执行过程，提高吞吐量；如果应用程序需要对线程进行特定的控制，则不适合使用线程池，需要创建并管理自己的线程。
+
+8、每个进程都有且仅有一个线程池。当进程启动时，线程池不会自动创建。只有第一次将回调方法排入队列时才会创建线程池。
+
+9、线程池通常用于服务器应用程序，每个传入请求都将分配给线程池中的一个线程，一次可以异步处理请求，不会占用主线程，也不会延迟后续请求的处理。
+
+```csharp
+ThreadPool//常用方法
+void GetMaxThreads(out int workerThreads,out int completionPortThreads)
+//检索可以同时处于活动状态的线程池请求的数目，
+//所有大于此数目的请求将保持排队状态，知道线程池线程变为可用
+bool QueueUserWorkItem(WaitCallback callback)
+public delegate void WaitCallback(Object state)
+//将方法排入队列以便执行，此方法在有线程池线程变得可用时执行。
+//线程池收到请求后会从池中选择一个线程来调用该方法。
+//如果线程池还没有运行，就会创建一个线程池，并启动第一个线程。
+//如果线程池已经在运行，且有一个空闲线程来完成该任务就把该作业传递给这个线程。
+
+```
+
+### 使用线程池的限制
+
+线程池中所有线程都是后台线程。如果进程中的所有前台线程都结束了，所有的后台线程就会停止。不能把线程池中的线程改为前台线程。
+
+不能给线程池中的线程设置优先级或名称。
+
+线程池中的线程只能用于时间较短的任务，如果线程要一直运行，就应使用Thread类创建一个线程。
+
+```csharp
+using System;
+using System.Threading;
+
+namespace Wrox.ProCSharp.Threading
+{
+    class Program
+    {
+        static void Main()
+        {
+            // 获取线程池中可用的最大工作线程数和 I/O 完成线程数
+            int nWorkerThreads; // 用于存储工作线程数
+            int nCompletionPortThreads; // 用于存储 I/O 完成线程数
+            ThreadPool.GetMaxThreads(out nWorkerThreads, out nCompletionPortThreads);
+
+            // 打印最大工作线程数和 I/O 完成线程数
+            Console.WriteLine("Max worker threads: {0}, I/O completion threads: {1}",
+                nWorkerThreads, nCompletionPortThreads);
+
+            // 使用线程池执行 5 个任务
+            for (int i = 0; i < 5; i++)
+            {
+                // 将任务队列到线程池中
+                ThreadPool.QueueUserWorkItem(JobForAThread);
+            }
+
+            // 主线程等待 3 秒，让线程池中的线程完成任务
+            Thread.Sleep(3000);
+
+            // 保持控制台窗口打开，直到用户按下回车键
+            Console.ReadLine();
+        }
+
+        // 用于线程池的工作方法
+        static void JobForAThread(object state)
+        {
+            // 模拟线程执行的任务：循环打印当前线程的 ID 和计数
+            for (int i = 0; i < 3; i++)
+            {
+                Console.WriteLine("loop {0}, running inside pooled thread {1}",
+                    i, Thread.CurrentThread.ManagedThreadId);
+                // 模拟任务处理耗时
+                Thread.Sleep(50);
+            }
+        }
+    }
+}
+
+```
