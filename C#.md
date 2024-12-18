@@ -1469,7 +1469,6 @@ public delegate void WaitCallback(Object state)
 //线程池收到请求后会从池中选择一个线程来调用该方法。
 //如果线程池还没有运行，就会创建一个线程池，并启动第一个线程。
 //如果线程池已经在运行，且有一个空闲线程来完成该任务就把该作业传递给这个线程。
-
 ```
 
 ### 使用线程池的限制
@@ -1523,6 +1522,192 @@ namespace Wrox.ProCSharp.Threading
                     i, Thread.CurrentThread.ManagedThreadId);
                 // 模拟任务处理耗时
                 Thread.Sleep(50);
+            }
+        }
+    }
+}
+```
+
+## 线程同步
+
+```csharp
+所谓同步，是指在某一时刻只有一个线程可以访问变量。
+当一个线程写入一个变量，同时有其他线程读取或写入这个变量时，就应同步变量。
+
+高级语言程序中的一条语句在最后编译好的汇编语言机器码中可能被翻译为多条语句，在操作系统调度时被划分到不同时间片中
+
+message+="Hello world";
+
+只要一条C#语句被翻译为多个本地代码命令，线程的时间片就有可能在执行该语句的进程中终止。
+
+在C#中处理同步
+
+通过对指定对象的加锁和解锁可以同步代码段的访问
+
+System.Threading.Monitor类提供的静态方法
+
+public static void Enter(Object obj)//在指定对象上获取排它锁
+
+public static bool TryEnter(Object obj)//试图获取指定对象上的排它锁
+
+public static bool TryEnter(Object obj,TimeSpan timeout)//可以指定一个等待被锁定的超时值
+
+public static void TryEnter(Object obj,TimeSpand timeout,ref bool lockTaken)
+
+public static void Exit(Object obj)//释放指定对象上的排它锁
+
+public static bool Wait(Object obj)//释放对象上的锁并阻塞当前线程，知道它重新获取该锁。
+
+public static void Pulse(Object obj)//通知等待队列中的线程锁定对象转态的更改。
+
+public static void PulseAll(Object obj)//通知所有的等待线程对象状态的更改
+```
+
+## 线程同步的几个方法
+
+```csharp
+//1、使用Lock（锁定对象）{互斥代码块}实现互斥
+lock(x){
+    //使用x的语句
+}
+
+//2、用Mutex类实现互斥
+WaitOne public virtual bool WaitOne()
+//分配互斥体访问权，该方法只向一个线程授予对互斥体的独占访问权
+ReleaseMutex
+//如果一个线程获取了互斥体，则要获取该互斥体的第二个线程将被挂起，知道第一个线程用该方法释放该互斥体。
+
+
+if(Mutex.WaitOne()){
+    try{
+        ...
+    }finally{
+        mutex.ReleaseMutex();
+    }else{
+        ...
+    }
+}
+
+//3、在互斥代码块前使用Monitor.Enter(锁定对象)，
+//在互斥代码块后使用Monitor.Exit(锁定对象)
+
+public void some_method(){
+    //获取锁
+    Monitor.Enter(this);
+
+    //处理需要同步的代码
+
+    //释放锁
+    Monitor.Exit(this);
+}
+
+
+public void some_method(){
+    //获取锁
+    Monitor.Enter(this);
+    try{
+    //处理需要同步的代码
+    }catch{
+
+    }
+    //释放锁
+    finally{
+    Monitor.Exit(this);
+    }
+}
+
+//4、Interlocked 见程序示例SynchronizationSamples
+//常用方法
+long Add(reg long locationl,long value)
+//以原子操作的形式，相加两个64位整数并用两者的和替换第一个整数
+long Increment(ref long location)
+//递增指定的变量的值并存储结果
+long Decrement(ref long location)
+//递减指定的变脸的值并存储结果
+long Exchange(ref long locationl,long value)
+//将一个变量设置为指定的值并返回变量的初始值
+
+
+public int State{
+    get{
+        return Interlocked.Increment(ref state);
+    }
+}
+
+//5、Semphore类
+//见程序SemphoreSample
+
+//6、ReaderWriterLockSlim 见程序ReaderWriterSample
+```
+
+Sempore
+
+```csharp
+using System; // 引入基础命名空间，用于常见的系统操作。
+using System.Diagnostics; // 引入调试命名空间，用于断言和调试相关功能。
+using System.Threading; // 引入多线程命名空间，提供线程和同步工具支持。
+
+namespace Wrox.ProCSharp.Threading // 定义程序所属的命名空间。
+{
+    class Program // 主程序类。
+    {
+        static void Main() // 程序入口点。
+        {
+            int threadCount = 6; // 定义线程数量为 6。
+            int semaphoreCount = 4; // 定义信号量的初始计数器值为 4（允许最多 4 个线程同时访问资源）。
+            var semaphore = new SemaphoreSlim(semaphoreCount, semaphoreCount); // 创建信号量，限制并发线程数为 4。
+            var threads = new Thread[threadCount]; // 创建一个线程数组，用于存储线程。
+
+            // 创建并启动 6 个线程。
+            for (int i = 0; i < threadCount; i++)
+            {
+                threads[i] = new Thread(ThreadMain); // 将线程的执行方法设置为 ThreadMain。
+                threads[i].Start(semaphore); // 启动线程，并将信号量作为参数传递。
+            }
+
+            // 等待所有线程执行完成。
+            for (int i = 0; i < threadCount; i++)
+            {
+                threads[i].Join(); // 阻塞主线程，直到当前线程完成。
+            }
+
+            Console.WriteLine("All threads finished"); // 所有线程完成后打印消息。
+            Console.ReadLine(); // 等待用户输入，防止程序结束。
+        }
+
+        static void ThreadMain(object o) // 线程执行的主方法。
+        {
+            SemaphoreSlim semaphore = o as SemaphoreSlim; // 将传递的参数转换为 SemaphoreSlim 类型。
+            Trace.Assert(semaphore != null, "o must be a Semaphore type"); // 使用断言确保信号量参数不为空。
+
+            bool isCompleted = false; // 定义一个标志变量，用于控制线程是否完成其任务。
+            while (!isCompleted) // 循环直到任务完成。
+            {
+                // 尝试获取信号量，如果在 600 毫秒内未成功则超时。
+                if (semaphore.Wait(600))
+                {
+                    try
+                    {
+                        // 成功获取信号量，输出当前线程锁定信号量的消息。
+                        Console.WriteLine("Thread {0} locks the semaphore",
+                              Thread.CurrentThread.ManagedThreadId);
+                        Thread.Sleep(2000); // 模拟线程执行任务，睡眠 2 秒。
+                    }
+                    finally
+                    {
+                        // 确保任务完成后释放信号量，并打印释放信号量的消息。
+                        semaphore.Release();
+                        Console.WriteLine("Thread {0} releases the semaphore",
+                           Thread.CurrentThread.ManagedThreadId);
+                        isCompleted = true; // 设置标志变量为 true，表示任务完成。
+                    }
+                }
+                else
+                {
+                    // 如果信号量获取超时，打印超时消息，并继续循环尝试。
+                    Console.WriteLine("Timeout for thread {0}; wait again",
+                       Thread.CurrentThread.ManagedThreadId);
+                }
             }
         }
     }
