@@ -1712,5 +1712,843 @@ namespace Wrox.ProCSharp.Threading // 定义程序所属的命名空间。
         }
     }
 }
+```
+
+ReaderWriterSample
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Wrox.ProCSharp.Threading
+{
+    class Program
+    {
+        // 创建一个共享的整数列表，用于读写操作
+        private static List<int> items = new List<int>() { 0, 1, 2, 3, 4, 5 };
+
+        // 使用 ReaderWriterLockSlim 提供线程同步功能，允许多个读者同时访问数据，但只允许一个写者
+        private static ReaderWriterLockSlim rwl = new
+              ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+
+        // 读线程方法
+        static void ReaderMethod(object reader)
+        {
+            try
+            {
+                // 尝试获取读锁
+                rwl.EnterReadLock();
+
+                // 遍历共享列表并读取数据
+                for (int i = 0; i < items.Count; i++)
+                {
+                    Console.WriteLine("reader {0}, loop: {1}, item: {2}",
+                          reader, i, items[i]);
+                    Thread.Sleep(40); // 模拟耗时操作
+                }
+            }
+            finally
+            {
+                // 确保在退出方法时释放读锁
+                rwl.ExitReadLock();
+            }
+        }
+
+        // 写线程方法
+        static void WriterMethod(object writer)
+        {
+            try
+            {
+                // 循环尝试获取写锁，每次尝试的超时时间为50毫秒
+                while (!rwl.TryEnterWriteLock(50))
+                {
+                    Console.WriteLine("Writer {0} waiting for the write lock",
+                          writer);
+                    // 显示当前的读者线程数
+                    Console.WriteLine("current reader count: {0}",
+                          rwl.CurrentReadCount);
+                }
+
+                // 获取写锁后，开始写操作
+                Console.WriteLine("Writer {0} acquired the lock", writer);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    items[i]++; // 修改共享列表中的每个元素
+                    Thread.Sleep(50); // 模拟耗时操作
+                }
+                Console.WriteLine("Writer {0} finished", writer);
+            }
+            finally
+            {
+                // 确保在退出方法时释放写锁
+                rwl.ExitWriteLock();
+            }
+        }
+
+        // 主方法
+        static void Main()
+        {
+            // 创建 TaskFactory，用于创建任务
+            var taskFactory = new TaskFactory(TaskCreationOptions.LongRunning, TaskContinuationOptions.None);
+
+            // 定义一个包含6个任务的数组
+            var tasks = new Task[6];
+
+            // 启动写线程和读线程
+            tasks[0] = taskFactory.StartNew(WriterMethod, 1); // 写线程1
+            tasks[1] = taskFactory.StartNew(ReaderMethod, 1); // 读线程1
+            tasks[2] = taskFactory.StartNew(ReaderMethod, 2); // 读线程2
+            tasks[3] = taskFactory.StartNew(WriterMethod, 2); // 写线程2
+            tasks[4] = taskFactory.StartNew(ReaderMethod, 3); // 读线程3
+            tasks[5] = taskFactory.StartNew(ReaderMethod, 4); // 读线程4
+
+            // 等待所有任务完成
+            for (int i = 0; i < 6; i++)
+            {
+                tasks[i].Wait();
+            }
+        }
+    }
+}
+```
+
+## 任务Task
+
+```csharp
+//任务在后台使用ThreadPool
+//可以定义连续的工作，在一个任务完成后需要执行什么工作
+//可以在层次结构中安排任务，例如父任务可以创建新的子任务，这可以创建一种依赖关系
+
+
+//启动任务
+//可以使用TaskFactory类或Task类的构造函数和Start()方法
+
+// 定义任务执行的方法
+static void TaskMethod()
+{
+    // 输出任务运行信息
+    Console.WriteLine("running in a task");
+    Console.WriteLine("Task id: {0} {1}", 
+        Task.CurrentId, // 当前任务的ID
+        Thread.CurrentThread.ManagedThreadId); // 当前线程的托管线程ID
+}
+
+// 使用TaskFactory类创建并启动任务
+TaskFactory tf = new TaskFactory();
+// 使用TaskFactory的StartNew方法启动任务
+Task t1 = tf.StartNew(TaskMethod);
+
+// 通过任务(Task)的工厂方法(Task.Factory)启动任务
+Task t2 = Task.Factory.StartNew(TaskMethod);
+// 输出当前线程的托管线程ID
+Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+
+// 使用Task类的构造函数创建任务
+Task t3 = new Task(TaskMethod);
+// 使用RunSynchronously方法启动任务
+// 任务会在调用者的当前线程中运行，
+// 调用者需要等待任务完成后才能继续执行
+t3.RunSynchronously();
+
+// 使用Task类构造函数创建任务并设置任务创建选项
+// TaskCreationOptions.PreferFairness提示任务调度器尽量公平分配线程
+Task t4 = new Task(TaskMethod, TaskCreationOptions.PreferFairness);
+// 使用Start方法启动任务
+t4.Start();
+
 
 ```
+
+### TaskCreationOptions选项
+
+### 连续的任务
+
+通过任务，可以指定在任务完成后，应开始运行另一个特定任务。例如，一个使用前一个任务的结果的新任务，如果前一个任务失败了，这个任务就应执行一些清理工作。
+
+连续处理程序有一个Task类型的参数。
+
+```csharp
+// 定义一个任务方法
+static void DoOnFirst()
+{
+    // 输出当前任务ID，并模拟执行任务
+    Console.WriteLine("doing some task {0}", Task.CurrentId);
+    Thread.Sleep(3000); // 模拟任务耗时
+}
+
+// 定义在任务完成后执行的方法，接受一个Task对象作为参数
+static void DoOnSecond(Task t)
+{
+    // 输出前置任务的ID
+    Console.WriteLine("task {0} finished", t.Id);
+    // 输出当前任务ID
+    Console.WriteLine("this task id {0}", Task.CurrentId);
+    // 模拟清理操作
+    Console.WriteLine("do some cleanup");
+    Thread.Sleep(3000); // 模拟任务耗时
+}
+
+// 创建一个任务 t1，执行 DoOnFirst 方法
+Task t1 = new Task(DoOnFirst);
+
+// 创建两个后续任务 t2 和 t3，当 t1 完成后分别执行 DoOnSecond 方法
+Task t2 = t1.ContinueWith(DoOnSecond);
+Task t3 = t1.ContinueWith(DoOnSecond);
+
+// 在 t2 完成后创建后续任务 t4，执行 DoOnSecond 方法
+Task t4 = t2.ContinueWith(DoOnSecond);
+
+
+```
+
+### 代码说明：
+
+1. **`DoOnFirst` 方法**：这是主任务执行的内容，模拟一个耗时任务，打印任务ID。
+2. **`DoOnSecond` 方法**：这是后续任务执行的内容，接受一个完成的任务作为参数，打印其ID并进行一些清理工作。
+3. **任务关系**：
+   - `t1` 是主任务，调用 `DoOnFirst`。
+   - `t2` 和 `t3` 是 `t1` 的后续任务（continuations），当 `t1` 完成时，分别调用 `DoOnSecond`。
+   - `t4` 是 `t2` 的后续任务，当 `t2` 完成时，调用 `DoOnSecond`。
+4. **任务启动顺序**：
+   - 创建任务时并未启动，需调用 `t1.Start()` 才能开始。
+   - 任务完成后会自动触发后续任务，无需手动启动后续任务。
+
+### 注意事项：
+
+- 如果 `t1` 未启动（未调用 `t1.Start()`），后续任务 `t2` 和 `t3` 将不会执行。
+- 任务间的依赖关系（`ContinueWith`）确保了任务的执行顺序。
+- 为了提高效率，可使用异步机制或并行化任务。
+
+### 父任务和子任务
+
+一个任务在另一个任务内部创建，构成父子关系。
+
+如果父任务在子任务之前结束，父任务的状态就显示为WaitingForChildrentoComplete。子任务也结束时，父任务的状态就显示为RanToCompletion
+
+如果父任务使用TaskCreationOptions枚举中的DetachedFromParent创建子任务，以上就无效
+
+取消父任务就会取消子任务
+
+```csharp
+// 定义一个方法，演示父任务和子任务的关系
+static void ParentAndChild()
+{
+    // 创建一个父任务，执行 ParentTask 方法
+    Task parent = new Task(ParentTask);
+
+    // 启动父任务
+    parent.Start();
+
+    // 主线程休眠 2 秒，等待父任务开始执行
+    Thread.Sleep(2000);
+
+    // 输出父任务的当前状态
+    Console.WriteLine(parent.Status); // 可能是 Running 或 WaitingForChildrenToComplete
+
+    // 主线程再休眠 4 秒，等待父任务及其子任务的执行
+    Thread.Sleep(4000);
+
+    // 再次输出父任务的当前状态
+    Console.WriteLine(parent.Status); // 最终状态可能是 RanToCompletion 或 Faulted
+}
+
+// 定义父任务的内容
+static void ParentTask()
+{
+    // 输出当前任务的 ID
+    Console.WriteLine("task id {0}", Task.CurrentId);
+
+    // 创建一个子任务，执行 ChildTask 方法
+    Task child = new Task(ChildTask);
+
+    // 启动子任务
+    child.Start();
+
+    // 模拟父任务的其他工作
+    Thread.Sleep(1000);
+
+    // 输出父任务已启动子任务的信息
+    Console.WriteLine("parent started child");
+
+    // （可选）如果父任务执行时间更长，可以取消注释下行代码模拟
+    // Thread.Sleep(3000);
+}
+
+// 定义子任务的内容
+static void ChildTask()
+{
+    // 输出子任务的开始信息
+    Console.WriteLine("child");
+
+    // 模拟子任务的执行时间
+    Thread.Sleep(5000);
+
+    // 输出子任务完成信息
+    Console.WriteLine("child finished");
+}
+d");
+        }
+      }
+
+```
+
+### **代码解释**：
+
+1. **`ParentAndChild` 方法**:
+   - 创建并启动父任务 `parent`。
+   - 主线程使用 `Thread.Sleep` 模拟等待，期间两次输出父任务状态。
+2. **`ParentTask` 方法**:
+   - 定义父任务内容，包括创建并启动一个子任务 `child`。
+   - 子任务 `ChildTask` 是独立的，与父任务运行在不同的线程中。
+3. **`ChildTask` 方法**:
+   - 子任务主要执行耗时操作（`Thread.Sleep` 模拟耗时），然后输出完成信息。
+
+---
+
+### **任务状态说明**：
+
+- **`parent.Status`** 的可能值：
+  1. **`Running`**：父任务正在执行。
+  2. **`WaitingForChildrenToComplete`**：父任务已完成自身工作，但等待子任务完成。
+  3. **`RanToCompletion`**：父任务及其所有子任务都已成功完成。
+  4. **`Faulted`**：父任务或其子任务发生了未处理的异常。
+
+---
+
+### **改进建议**：
+
+1. 使用 **`TaskCreationOptions.AttachedToParent`** 让子任务自动附加到父任务，从而形成完整的任务层级结构，避免显式管理子任务的生命周期：
+   
+   csharp
+   
+   复制代码
+   
+   `Task child = new Task(ChildTask, TaskCreationOptions.AttachedToParent);`
+
+2. 结合 **异步方法** 和 **等待 (`await`)** 来替代 `Thread.Sleep`，提高代码的可读性和性能。
+
+```csharp
+// 导入必要的命名空间
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.IO;
+
+// 定义命名空间
+namespace TaskSamples
+{
+    // 定义主程序类
+    class Program
+    {
+        // 主方法，程序入口
+        static void Main()
+        {
+            // 调用并行任务示例方法
+            //ParallelDemo();
+
+            // 调用简单任务示例方法
+             SimpleTask();
+
+            // 输出主任务的 ID 和线程 ID
+            Console.WriteLine("Main Task id: {0}, Main Thread id: {1}", Task.CurrentId, Thread.CurrentThread.ManagedThreadId);
+
+            // 调用任务的延续（Continuation）示例方法
+            // ContinuationTask();
+
+            // 调用父子任务示例方法
+            // ParentAndChild();
+
+            // 调用带结果的任务示例方法
+            // ResultsFromTasks();
+
+            // 主线程等待以确保任务完成（示例用）
+            // Thread.Sleep(5000);
+
+            // 示例：循环创建并启动多个任务
+            //for (int i = 0; i < 10; i++)
+            //{
+            //    Task t1 = new Task(o =>
+            //    {
+            //        Console.WriteLine("running in a task {0}, thread {1}", Task.CurrentId, Thread.CurrentThread.ManagedThreadId);
+            //        Thread.Sleep(500);
+            //        Console.WriteLine("still running {0}", Thread.CurrentThread.ManagedThreadId);
+            //    }, "data", TaskCreationOptions.None);
+
+            //    // 启动任务
+            //    t1.Start();
+            //}
+
+            // 防止主线程立即结束
+            Console.ReadLine();
+        }
+
+        // 示例：带返回结果的任务
+        static void ResultsFromTasks()
+        {
+            // 创建任务并指定输入参数类型
+            var t1 = new Task<Tuple<int, int>>(TaskWithResult, Tuple.Create<int, int>(8, 3));
+
+            // 启动任务
+            t1.Start();
+
+            // 阻塞等待任务完成，获取结果
+            Console.WriteLine(t1.Result); // 输出任务的计算结果
+            Console.WriteLine("result from task: {0} {1}", t1.Result.Item1, t1.Result.Item2);
+        }
+
+        // 执行带返回结果的任务方法
+        static Tuple<int, int> TaskWithResult(object division)
+        {
+            // 将输入参数转换为元组
+            Tuple<int, int> div = (Tuple<int, int>)division;
+
+            // 计算商
+            int result = div.Item1 / div.Item2;
+
+            // 计算余数
+            int reminder = div.Item1 % div.Item2;
+
+            // 输出任务完成状态
+            Console.WriteLine("task creates a result...");
+
+            // 返回计算结果
+            return Tuple.Create<int, int>(result, reminder);
+        }
+
+        // 示例：任务创建和启动方法
+        static void SimpleTask()
+        {
+            TaskFactory tf = new TaskFactory(); // 创建任务工厂
+            Task t1 = tf.StartNew(TaskMethod); // 使用任务工厂启动任务
+
+            Task t2 = Task.Factory.StartNew(TaskMethod); // 使用任务的静态工厂方法启动任务
+
+            Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+
+            Task t3 = new Task(TaskMethod); // 使用构造函数创建任务
+            t3.RunSynchronously(); // 在调用线程同步运行任务
+
+            Task t4 = new Task(TaskMethod, TaskCreationOptions.PreferFairness);
+            t4.Start(); // 启动任务
+        }
+
+        // 示例：任务延续
+        static void ContinuationTask()
+        {
+            Task t1 = new Task(DoOnFirst); // 创建初始任务
+            Task t2 = t1.ContinueWith(DoOnSecond); // 正常完成后执行
+            Task t3 = t1.ContinueWith(DoOnSecond); // 创建另一个延续任务
+            Task t4 = t2.ContinueWith(DoOnSecond); // 在第二个任务之后延续
+            Task t5 = t1.ContinueWith(DoOnError, TaskContinuationOptions.OnlyOnFaulted); // 仅在任务出错时执行
+
+            t1.Start(); // 启动初始任务
+            Thread.Sleep(5000); // 主线程等待延续任务完成
+        }
+
+        // 初始任务的执行方法
+        static void DoOnFirst()
+        {
+            Console.WriteLine("doing some task {0}", Task.CurrentId);
+            Thread.Sleep(3000); // 模拟任务执行
+        }
+
+        // 延续任务的执行方法
+        static void DoOnSecond(Task t)
+        {
+            Console.WriteLine("task {0} finished", t.Id);
+            Console.WriteLine("this task id {0}", Task.CurrentId);
+            Console.WriteLine("do some cleanup");
+            Thread.Sleep(3000); // 模拟清理
+        }
+
+        // 错误处理任务方法
+        static void DoOnError(Task t)
+        {
+            Console.WriteLine("task {0} had an error!", t.Id);
+            Console.WriteLine("my id {0}", Task.CurrentId);
+            Console.WriteLine("do some cleanup");
+        }
+
+        // 示例：父子任务
+        static void ParentAndChild()
+        {
+            TaskFactory factory = new TaskFactory(); // 创建任务工厂
+
+            // 创建并启动父任务
+            var t1 = factory.StartNew(() =>
+            {
+                Console.WriteLine("parent task {0}", Task.CurrentId);
+
+                // 创建附属于父任务的子任务
+                factory.StartNew(() =>
+                {
+                    Console.WriteLine("child task {0}", Task.CurrentId);
+                    Thread.Sleep(2000); // 模拟子任务执行
+                    Console.WriteLine("finished child");
+                }, TaskCreationOptions.AttachedToParent);
+
+                Console.WriteLine("finished parent");
+            });
+
+            t1.Wait(); // 阻塞主线程，等待任务完成
+        }
+
+        // 示例：并行任务
+        static void ParallelDemo()
+        {
+            Parallel.For<string>(0, 20, () => "abcd",
+                (x, ls, str) =>
+                {
+                    Console.WriteLine(x); // 输出当前索引
+                    return "defg"; // 返回中间状态
+                },
+                (str) =>
+                {
+                    Console.WriteLine("action {0}", str); // 输出最终状态
+                });
+        }
+
+        // 任务执行内容
+        static void TaskMethod()
+        {
+            Console.WriteLine("running in a task");
+            Console.WriteLine("Task id: {0}, Thread id: {1}", Task.CurrentId, Thread.CurrentThread.ManagedThreadId);
+        }
+    }
+}
+ne("running in a task");
+            Console.WriteLine("Task id: {0}, Thread id: {1}", Task.CurrentId, Thread.CurrentThread.ManagedThreadId);
+        }
+    }
+}
+
+```
+
+### **主要功能**
+
+1. **任务创建**：通过 `Task` 和 `TaskFactory` 创建任务。
+2. **延续任务**：任务完成后可设置继续执行的任务，支持不同触发条件。
+3. **父子任务**：通过 `TaskCreationOptions.AttachedToParent` 建立父子任务关系。
+4. **任务返回结果**：使用泛型任务返回计算结果。
+5. **并行任务**：通过 `Parallel` 执行并行操作。
+
+---
+
+### **改进建议**
+
+1. **异步编程**：使用 `async` 和 `await` 替代阻塞式等待。
+2. **任务异常处理**：捕获任务中未处理的异常，确保代码健壮性。
+3. **日志记录**：添加日志以便更好地追踪任务的执行。
+
+
+
+## 异步委托
+
+委托是使用线程池完成异步任务
+
+轮询
+
+等待句柄
+
+使用与IAsyncResult相关的等待句柄
+
+使用AyncWaitHandle属性可以访问等待句柄，这个属性返回一个WaitHandle类型的对象，可以等待委托线程完成任务
+
+异步回调
+
+这段代码主要展示了如何使用 .NET 异步编程模型（APM，Asynchronous Programming Model）来执行异步操作。以下是该代码的详细分析：
+
+---
+
+### **核心功能概述**
+
+1. **同步调用 (`TakesAWhile`)**：
+   
+   - `TakesAWhile` 是一个模拟耗时操作的函数，接收两个参数：
+     - `data`：初始值。
+     - `ms`：模拟的延迟时间（毫秒）。
+   - 返回处理后的结果（`data + 1`）。
+
+2. **异步调用 (`BeginInvoke` 和 `EndInvoke`)**：
+   
+   - `BeginInvoke`：开始异步操作。
+   - `EndInvoke`：等待异步操作完成并获取结果。
+   - 提供了多种异步调用方式：
+     - **轮询**：定期检查异步任务是否完成。
+     - **等待句柄**：通过 `WaitOne` 方法等待异步操作完成。
+     - **回调函数**：当异步操作完成时调用指定的回调方法。
+     - **Lambda 表达式**：通过匿名方法处理异步结果。
+
+---
+
+### **代码功能分析**
+
+#### **同步调用**
+
+```csharp
+// TakesAWhile(1, 3000);
+```
+
+- 直接调用 `TakesAWhile` 方法。主线程会被阻塞，直到 `TakesAWhile` 完成。
+
+---
+
+#### **异步调用方式**
+
+##### **1. 轮询 (Polling)**
+
+```csharp
+IAsyncResult ar = d1.BeginInvoke(1, 3000, null, null);
+while (!ar.IsCompleted)
+{
+    Console.Write(".");
+    Thread.Sleep(50); // 模拟主线程执行其他任务
+}
+int result = d1.EndInvoke(ar);
+Console.WriteLine("result: {0}", result);
+```
+
+- **步骤**：
+  1. 异步开始：`BeginInvoke` 开启任务。
+  2. 主线程轮询：通过检查 `ar.IsCompleted` 来判断任务是否完成。
+  3. 获取结果：任务完成后调用 `EndInvoke`。
+- **特点**：
+  - 主线程保持运行，但效率较低（频繁轮询）。
+
+---
+
+##### **2. 等待句柄 (Wait Handle)**
+
+```csharp
+IAsyncResult ar = d1.BeginInvoke(1, 3000, null, null);
+while (true)
+{
+    Console.Write(".");
+    if (ar.AsyncWaitHandle.WaitOne(50, false))
+    {
+        Console.WriteLine("Can get the result now");
+        break;
+    }
+}
+int result = d1.EndInvoke(ar);
+Console.WriteLine("result: {0}", result);
+```
+
+- **步骤**：
+  1. 异步开始：`BeginInvoke` 开启任务。
+  2. 主线程通过 `ar.AsyncWaitHandle.WaitOne` 等待，避免频繁轮询。
+  3. 获取结果：任务完成后调用 `EndInvoke`。
+- **特点**：
+  - 使用 `WaitHandle` 更加高效。
+
+---
+
+##### **3. 回调函数 (Async Callback)**
+
+```csharp
+d1.BeginInvoke(1, 3000, TakesAWhileCompleted, d1);
+for (int i = 0; i < 100; i++)
+{
+    Console.Write(".");
+    Thread.Sleep(50); // 模拟主线程其他任务
+}
+```
+
+- **步骤**：
+  1. 异步开始：`BeginInvoke` 并指定回调函数。
+  2. 回调函数 `TakesAWhileCompleted` 在任务完成时被自动调用。
+  3. 在回调函数中调用 `EndInvoke` 获取结果。
+
+```csharp
+static void TakesAWhileCompleted(IAsyncResult ar)
+{
+    if (ar == null) throw new ArgumentNullException("ar");
+
+    TakesAWhileDelegate d1 = ar.AsyncState as TakesAWhileDelegate;
+    Trace.Assert(d1 != null, "Invalid object type");
+
+    int result = d1.EndInvoke(ar);
+    Console.WriteLine("result: {0}", result);
+}
+```
+
+- **特点**：
+  - 回调函数运行在委托线程中，而非主线程。
+
+---
+
+##### **4. Lambda 表达式**
+
+```csharp
+d1.BeginInvoke(1, 3000, arr =>
+{
+    int r = d1.EndInvoke(arr);
+    Console.WriteLine("result: {0}", r);
+}, null);
+for (int i = 0; i < 100; i++)
+{
+    Console.Write(".");
+    Thread.Sleep(50);
+}
+```
+
+- **特点**：
+  - 使用 Lambda 表达式简化代码。
+  - 回调逻辑更直观。
+
+---
+
+### **优缺点比较**
+
+| 异步调用方式     | 优点            | 缺点                 |
+| ---------- | ------------- | ------------------ |
+| 轮询         | 简单易懂，适合小任务    | 性能较低，频繁轮询消耗 CPU 资源 |
+| 等待句柄       | 避免频繁轮询，更高效    | 等待时间设置需平衡          |
+| 回调函数       | 自动触发回调，主线程更灵活 | 代码复杂，可能引发线程安全问题    |
+| Lambda 表达式 | 代码简洁，逻辑清晰     | 与回调函数一样的线程安全问题     |
+
+---
+
+### **适用场景**
+
+1. **轮询和等待句柄**：
+   
+   - 适用于较简单的异步任务。
+   - 避免主线程复杂的线程安全问题。
+
+2. **回调函数和 Lambda**：
+   
+   - 适用于需要异步任务完成后执行特定操作的场景。
+   - 回调逻辑更复杂，但可以实现更高效的并发处理。
+
+---
+
+### **总结**
+
+该代码演示了 .NET 异步编程模型的多种使用方式，可根据任务复杂度和性能需求选择适合的实现方式。在现代 .NET 开发中，推荐使用 `async/await` 替代 APM，简化代码逻辑并提升可读性。
+
+
+
+
+
+以下是逐行注释的代码，帮助理解每一部分的功能和作用：
+
+```csharp
+using System; // 引入基础命名空间，提供基础类型和控制台功能
+using System.Collections.Generic; // 引入泛型集合的命名空间
+using System.Text; // 提供字符串操作相关功能
+using System.Threading; // 提供线程和多线程相关功能
+using System.Diagnostics; // 提供调试和跟踪相关功能
+
+namespace Wrox.ProCSharp.Threading // 定义一个命名空间，用于组织代码
+{
+    class Program // 定义主类
+    {
+        // 定义一个耗时方法 TakesAWhile，模拟长时间操作
+        static int TakesAWhile(int data, int ms)
+        {
+            Console.WriteLine("TakesAWhile started"); // 打印开始信息
+            Thread.Sleep(ms); // 模拟耗时操作，休眠指定毫秒
+            Console.WriteLine("TakesAWhile completed"); // 打印完成信息
+            return ++data; // 返回结果，数据加1
+        }
+
+        // 定义一个委托，匹配 TakesAWhile 的方法签名
+        public delegate int TakesAWhileDelegate(int data, int ms);
+
+        static void Main() // 程序入口
+        {
+            // 创建 TakesAWhile 的委托实例
+            TakesAWhileDelegate d1 = TakesAWhile;
+
+            // 同步调用方式，已注释掉
+            // TakesAWhile(1, 3000);
+
+            // 1. 轮询方式 (Polling)
+            IAsyncResult ar = d1.BeginInvoke(1, 3000, null, null); // 异步调用 TakesAWhile，返回异步结果 IAsyncResult
+            while (!ar.IsCompleted) // 检查是否完成
+            { 
+                Console.Write("."); // 模拟其他工作
+                Thread.Sleep(50); // 模拟短暂延时
+            }
+            int result = d1.EndInvoke(ar); // 阻塞等待异步操作完成，并获取结果
+            Console.WriteLine("result: {0}", result); // 打印结果
+
+            // 2. 等待句柄方式 (Wait Handle)，已注释掉
+            // IAsyncResult ar = d1.BeginInvoke(1, 3000, null, null);
+            // while (true)
+            // {
+            //    Console.Write(".");
+            //    if (ar.AsyncWaitHandle.WaitOne(50, false)) // 等待异步句柄信号
+            //    {
+            //        Console.WriteLine("Can get the result now"); // 当可以获取结果时打印提示
+            //        break;
+            //    }
+            // }
+            // int result = d1.EndInvoke(ar);
+            // Console.WriteLine("result: {0}", result);
+
+            // 3. 异步回调方式 (Async Callback)，已注释掉
+            // d1.BeginInvoke(1, 3000, TakesAWhileCompleted, d1);
+            // for (int i = 0; i < 100; i++)
+            // {
+            //    Console.Write(".");
+            //    Thread.Sleep(50);
+            // }
+
+            // 使用 Lambda 表达式实现异步回调
+            d1.BeginInvoke(1, 3000, arr => 
+            {
+                int r = d1.EndInvoke(arr); // 获取结果
+                Console.WriteLine("result: {0}", r); // 打印结果
+            },
+            null); // 无状态对象
+
+            // 模拟主线程的其他工作
+            for (int i = 0; i < 100; i++)
+            {
+                Console.Write("."); // 打印进度符号
+                Thread.Sleep(50); // 模拟短暂延时
+            }
+        }
+
+        // 回调方法，处理异步结果
+        static void TakesAWhileCompleted(IAsyncResult ar)
+        {
+            if (ar == null) throw new ArgumentNullException("ar"); // 检查参数有效性
+
+            TakesAWhileDelegate d1 = ar.AsyncState as TakesAWhileDelegate; // 从异步状态中获取委托实例
+            Trace.Assert(d1 != null, "Invalid object type"); // 确保对象类型正确
+
+            int result = d1.EndInvoke(ar); // 获取异步操作结果
+            Console.WriteLine("result: {0}", result); // 打印结果
+        }
+    }
+}
+```
+
+### 代码解析重点：
+
+1. **同步与异步：**
+   
+   - 同步调用会阻塞主线程直到任务完成。
+   - 异步调用允许主线程继续运行，而任务在后台执行。
+
+2. **异步调用模式：**
+   
+   - **轮询 (Polling)：** 主线程通过检查 `IAsyncResult.IsCompleted` 判断任务是否完成。
+   - **等待句柄 (Wait Handle)：** 使用 `AsyncWaitHandle.WaitOne` 等待异步完成信号。
+   - **异步回调 (Async Callback)：** 使用回调函数处理任务完成后的逻辑。
+
+3. **线程安全：**
+   
+   - 回调方法在异步线程中执行，应避免操作非线程安全资源。
+
+4. **Lambda 表达式：**
+   
+   - 简化代码，内嵌异步结果处理逻辑，代替传统回调方法。
